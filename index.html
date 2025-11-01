@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crop Science Long Exam</title>
+<style>
+  @media (max-width: 600px) {
+    body { font-size: 15px; }
+    .wrap { padding: 16px; }
+    .qtext { font-size: 16px; }
+    .choice { padding: 10px; }
+    button { width: 100%; }
+    .footer { flex-direction: column; align-items: stretch; }
+  }
+
+  :root{
+    --bg:#0f172a; --card:#111827; --muted:#64748b; --text:#e5e7eb; --accent:#22c55e; --warn:#f59e0b; --bad:#ef4444; --good:#10b981;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;background:linear-gradient(180deg,#0b1022,#0f172a);color:var(--text)}
+  .wrap{max-width:960px;margin:0 auto;padding:24px}
+  .card{background:linear-gradient(180deg,#0b1220,#0d1426);border:1px solid #1f2937;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  header{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid #1f2937}
+  header .meta{display:flex;gap:16px;flex-wrap:wrap}
+  .pill{padding:6px 10px;border-radius:999px;background:#111827;color:#cbd5e1;border:1px solid #1f2937;font-size:12px}
+  .content{padding:20px}
+  h1{margin:0;font-size:18px;color:#e2e8f0}
+  h2{margin:0 0 8px 0;font-size:16px;color:#e2e8f0}
+  .name-stage, .quiz-stage, .result-stage{display:none}
+  .active{display:block}
+  .field{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  input[type="text"]{padding:12px 14px;border-radius:10px;border:1px solid #334155;background:#0b1220;color:#e5e7eb;flex:1;min-width:220px}
+  button{padding:12px 16px;border:1px solid #263042;border-radius:12px;background:#0b1326;color:#e5e7eb;cursor:pointer}
+  button.primary{background:linear-gradient(180deg,#126d3a,#0d5a30);border-color:#144b2e}
+  button.warn{background:linear-gradient(180deg,#8a580c,#6f460a);border-color:#6b3b06}
+  button:hover{filter:brightness(1.08)}
+  .qtext{font-size:18px;line-height:1.5;margin-bottom:16px}
+  .choices{display:grid;gap:10px}
+  .choice{display:flex;gap:10px;align-items:flex-start;background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px}
+  .choice input{margin-top:3px}
+  .footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
+  .progress{height:8px;background:#0f172a;border:1px solid #1f2937;border-radius:999px;overflow:hidden}
+  .bar{height:100%;background:linear-gradient(90deg,#22c55e,#16a34a)}
+  .toast{position:fixed;right:18px;bottom:18px;background:#111827;border:1px solid #334155;border-radius:12px;padding:12px 14px;color:#e5e7eb;opacity:0;transform:translateY(8px);transition:.25s;z-index:9999}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .muted{color:#94a3b8}
+  .small{font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header>
+      <h1>Crop Science Long Exam</h1>
+      <div class="meta">
+        <span class="pill" id="who">Name: —</span>
+        <span class="pill" id="ys">Year/Section: —</span>
+        <span class="pill" id="timer">Time: 60:00</span>
+        <span class="pill" id="counter">Q: — / 100</span>
+        <span class="pill" id="penalties">Tab switches: 0</span>
+        <span class="pill" id="deduct">Penalty: 0</span>
+      </div>
+    </header>
+    <div class="content">
+      <!-- Stage: Name -->
+      <section class="name-stage active" id="stageName">
+        <h2>Enter your name and year/section to begin</h2>
+        <div class="field">
+          <input type="text" id="studentName" placeholder="Full name (e.g., Juan Dela Cruz)" />
+          <input type="text" id="yearSection" placeholder="Year & Section (e.g., BS Agri 2A)" />
+          <button class="primary" id="btnStart">Start Quiz</button>
+        </div>
+        <p class="muted small">Once you start, you’ll have <b>1 hour</b>. Questions are randomized and unnumbered. Switching tabs deducts <b>10 points</b> each time.</p>
+      </section>
+
+      <!-- Stage: Quiz -->
+      <section class="quiz-stage" id="stageQuiz">
+        <div class="progress" aria-hidden="true"><div class="bar" id="bar" style="width:0%"></div></div>
+        <p class="qtext" id="qtext"></p>
+        <div class="choices" id="choices"></div>
+        <div class="footer">
+          <button id="btnPrev">Review</button>
+          <div>
+            <button id="btnNext" class="primary">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stage: Results (no answer sheet shown to students) -->
+      <section class="result-stage" id="stageResult">
+        <h2>Submission Complete ✅</h2>
+        <p><b id="resName"></b> (<span id="resYS"></span>), your quiz has been submitted.</p>
+        <p>Raw Score: <b id="resRaw"></b> / 100<br>
+           Penalties (tab switches × 10): <b id="resPenalty"></b><br>
+           Final Score: <b id="resFinal"></b> / 100</p>
+        <p class="muted small">Your detailed answer sheet was saved securely and is not displayed here.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Please choose an answer before proceeding.</div>
+
+<!-- Firebase (modules) + Quiz logic -->
+<script type="module">
+  // ===========================
+  // 🔧 FIREBASE SETUP
+  // ===========================
+  const firebaseConfig = {
+    apiKey: "AIzaSyB-idZOq8h9sVttNdzXE2t8FMoYI_snq7g",
+    authDomain: "kuya-quiz-100.firebaseapp.com",
+    projectId: "kuya-quiz-100",
+    storageBucket: "kuya-quiz-100.appspot.com",
+    messagingSenderId: "74623975270",
+    appId: "1:74623975270:web:dec2b21dbee017292952a7"
+  };
+
+  const canInitFirebase = Object.values(firebaseConfig).every(v => typeof v === 'string' && !v.includes('REPLACE_ME'));
+  let app, db, addDoc, collection, serverTimestamp, signInAnonymously, getAuth;
+  if (canInitFirebase) {
+    const firebase = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const firestore = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const authmod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    app = firebase.initializeApp(firebaseConfig);
+    db  = firestore.getFirestore(app);
+    addDoc = firestore.addDoc;
+    collection = firestore.collection;
+    serverTimestamp = firestore.serverTimestamp;
+    getAuth = authmod.getAuth;
+    signInAnonymously = authmod.signInAnonymously;
+    try { await signInAnonymously(getAuth(app)); } catch(e) { console.warn("Anon auth failed:", e); }
+  }
+
+  // ===========================
+  // QUESTIONS (from cropsci long exam.odt)
+  // ===========================
+  const QUESTIONS = [
+  {id:1,q:"Growth in plants refers to:",A:"A temporary increase in size",B:"A reversible change in cell size",C:"An irreversible increase in size and mass of plant tissues",D:"A decrease in height due to pruning",ans:"C"},
+  {id:2,q:"Which part of the plant is primarily responsible for cell elongation during growth?",A:"Root cap",B:"Mature region",C:"Meristematic region",D:"Leaf apex",ans:"C"},
+  {id:3,q:"The term development in plants means:",A:"Only increase in height",B:"Only increase in leaf size",C:"The sum of all changes from germination to maturity",D:"The production of flowers only",ans:"C"},
+  {id:4,q:"Which environmental factor primarily drives photosynthesis?",A:"Temperature",B:"Soil pH",C:"Light intensity and duration",D:"Humidity",ans:"C"},
+  {id:5,q:"The rate of transpiration in crops increases when:",A:"Air humidity is high",B:"Temperature and wind speed are high",C:"Soil is dry",D:"Light intensity is low",ans:"B"},
+  {id:6,q:"What effect does high soil salinity have on crop growth?",A:"Enhances nutrient uptake",B:"Promotes flowering",C:"Causes osmotic stress and stunted growth",D:"Increases water absorption",ans:"C"},
+  {id:7,q:"The term genotype refers to:",A:"The physical appearance of a plant",B:"The genetic makeup of a plant",C:"The influence of environment",D:"The plant’s yield only",ans:"B"},
+  {id:8,q:"A phenotype is best described as:",A:"The sum of all genes in a population",B:"The observable characteristics of a plant",C:"A mutation in the DNA sequence",D:"The hidden genetic code",ans:"B"},
+  {id:9,q:"Which environmental factor most strongly influences flowering time in many crops?",A:"Humidity",B:"Photoperiod",C:"Soil nutrients",D:"Water availability",ans:"B"},
+  {id:10,q:"The main difference between growth and development is that:",A:"Growth is quantitative; development is qualitative",B:"Growth is qualitative; development is quantitative",C:"Both are qualitative",D:"Both are quantitative",ans:"A"},
+  {id:11,q:"Which factor does not directly affect seed germination?",A:"Temperature",B:"Leaf area",C:"Moisture",D:"Oxygen",ans:"B"},
+  {id:12,q:"The genetic constitution of crops determines:",A:"The availability of sunlight",B:"The soil fertility",C:"Their potential yield and resistance",D:"The amount of rainfall",ans:"C"},
+  {id:13,q:"The selection index in crop breeding is used to:",A:"Measure leaf chlorophyll",B:"Estimate water use",C:"Combine multiple traits for selection of superior genotypes",D:"Calculate soil fertility",ans:"C"},
+  {id:14,q:"Which among the following is an environmental factor influencing crop growth?",A:"Genetic makeup",B:"Mutation",C:"Temperature",D:"Chromosomal number",ans:"C"},
+  {id:15,q:"Which element is essential for chlorophyll formation?",A:"Phosphorus",B:"Magnesium",C:"Iron",D:"Potassium",ans:"B"},
+  {id:16,q:"Genetic modification (GMO) involves:",A:"Cross-pollination between two plants",B:"Direct alteration of genes using biotechnology",C:"Random mutations",D:"Radiation-induced breeding",ans:"B"},
+  {id:17,q:"The primary goal of GMO crop development is to:",A:"Decrease yield",B:"Reduce plant diversity",C:"Improve resistance or productivity",D:"Make plants less nutritious",ans:"C"},
+  {id:18,q:"A crop’s genotype interacts with its environment mainly to determine:",A:"Soil composition",B:"Its expressed performance (phenotype)",C:"Water content",D:"Air movement",ans:"B"},
+  {id:19,q:"Which of the following is an example of a genotype × environment interaction?",A:"Same yield across all conditions",B:"Variety A performs well in dry regions but poorly in wet areas",C:"Uniform performance regardless of soil",D:"Equal yield among all genotypes",ans:"B"},
+  {id:20,q:"The main purpose of crop selection is:",A:"To plant random seeds",B:"To reduce biodiversity",C:"To choose high-performing varieties adapted to local conditions",D:"To avoid new crop development",ans:"C"},
+  {id:21,q:"Temperature influences enzyme activity in plants because:",A:"Enzymes are unaffected by heat",B:"High temperature increases all reactions",C:"Each enzyme has an optimum temperature range",D:"Low temperature always speeds up metabolism",ans:"C"},
+  {id:22,q:"Drought stress in plants leads to:",A:"Increased leaf expansion",B:"Reduced photosynthesis and stomatal closure",C:"Faster nutrient absorption",D:"Higher transpiration rate",ans:"B"},
+  {id:23,q:"Which nutrient deficiency causes stunted growth and purple leaves in maize?",A:"Nitrogen",B:"Phosphorus",C:"Calcium",D:"Iron",ans:"B"},
+  {id:24,q:"A well-drained soil enhances crop growth because:",A:"It limits air exchange",B:"It causes root rot",C:"It allows sufficient aeration and nutrient uptake",D:"It stores excessive water",ans:"C"},
+  {id:25,q:"Which of the following describes plasticity in plants?",A:"Permanent genetic change",B:"Inability to adapt",C:"Ability to modify growth and form under different conditions",D:"Death under stress",ans:"C"},
+  {id:26,q:"Which human practice most directly improves soil fertility?",A:"Frequent tillage",B:"Overuse of chemical pesticides",C:"Application of compost or organic manure",D:"Burning of crop residues",ans:"C"},
+  {id:27,q:"Sustainable crop production aims to:",A:"Maximize yield at all costs",B:"Depend solely on chemicals",C:"Maintain productivity while conserving resources",D:"Abandon technological inputs",ans:"C"},
+  {id:28,q:"Which agricultural practice contributes to soil erosion ?",A:"Terracing",B:"Continuous monocropping on slopes",C:"Strip cropping",D:"Contour plowing",ans:"B"},
+  {id:29,q:"Crop rotation helps maintain soil fertility by:",A:"Using the same crop continuously",B:"Increasing pest populations",C:"Alternating crops to balance nutrient use",D:"Decreasing nitrogen fixation",ans:"C"},
+  {id:30,q:"Which human factor negatively affects crop productivity?",A:"Proper irrigation scheduling",B:"Balanced fertilization",C:"Deforestation and improper land use",D:"Use of cover crops",ans:"C"},
+  {id:31,q:"The Green Revolution primarily improved crop production through:",A:"Manual labor",B:"Natural evolution",C:"High-yielding varieties and modern inputs",D:"Rainfed systems only",ans:"C"},
+  {id:32,q:"Which component is not part of sustainable agriculture?",A:"Environmental protection",B:"Dependence on nonrenewable inputs",C:"Economic viability",D:"Social responsibility",ans:"B"},
+  {id:33,q:"Precision agriculture improves sustainability by:",A:"Using uniform fertilizer application everywhere",B:"Avoiding technology",C:"Applying resources only where needed using data and sensors",D:"Removing biodiversity",ans:"C"},
+  {id:34,q:"Which of the following is an example of integrated pest management (IPM) ?",A:"Sole use of pesticides",B:"Combining biological, cultural, and chemical methods to control pests",C:"Avoiding pest control",D:"Dependence on synthetic chemicals",ans:"B"},
+  {id:35,q:"Overirrigation may cause:",A:"Increased soil aeration",B:"Waterlogging and nutrient leaching",C:"Reduced salinity",D:"Pest control",ans:"B"},
+  {id:36,q:"Which farming system best conserves biodiversity?",A:"Monoculture",B:"Polyculture or mixed cropping",C:"Intensive monocropping",D:"Slash-and-burn agriculture",ans:"B"},
+  {id:37,q:"Organic farming relies primarily on:",A:"Synthetic fertilizers",B:"Pesticide-based control",C:"Natural processes and biological inputs",D:"GMO crops",ans:"C"},
+  {id:38,q:"Why are legumes vital in sustainable crop systems?",A:"They need high fertilizer input",B:"They inhibit soil microbes",C:"They fix atmospheric nitrogen through root nodules",D:"They exhaust soil nitrogen",ans:"C"},
+  {id:39,q:"The term agroecology refers to:",A:"Engineering of soil",B:"The application of ecological principles to agricultural systems",C:"A branch of chemistry",D:"The study of weather",ans:"B"},
+  {id:40,q:"A major social factor influencing crop production is:",A:"Seed dormancy",B:"Light intensity",C:"Farmers’ education and training",D:"Soil pH",ans:"C"},
+  {id:41,q:"Which sustainable practice helps reduce greenhouse gas emissions?",A:"Burning crop residues",B:"Overuse of nitrogen fertilizer",C:"Conservation tillage",D:"Excess irrigation",ans:"C"},
+  {id:42,q:"The main aim of conservation agriculture is:",A:"To clear land before each crop",B:"To plow deeply each season",C:"To maintain permanent soil cover and minimal disturbance",D:"To use more fertilizers",ans:"C"},
+  {id:43,q:"Which human activity causes soil compaction ?",A:"Controlled grazing",B:"Heavy machinery use on wet soils",C:"Crop rotation",D:"Intercropping",ans:"B"},
+  {id:44,q:"Sustainable irrigation involves:",A:"Using excess water",B:"Matching water supply to crop needs",C:"Ignoring rainfall patterns",D:"Continuous flooding",ans:"B"},
+  {id:45,q:"What is the major goal of sustainable crop production?",A:"Short-term profits",B:"Depletion of natural resources",C:"Long-term productivity with minimal environmental harm",D:"Overuse of fertilizers",ans:"C"},
+  {id:46,q:"The use of cover crops primarily:",A:"Increases soil erosion",B:"Reduces biodiversity",C:"Protects soil, fixes nitrogen, and improves organic matter",D:"Dries soil quickly",ans:"C"},
+  {id:47,q:"Which human factor can increase agricultural pollution?",A:"Balanced fertilization",B:"Excessive pesticide and fertilizer application",C:"Crop rotation",D:"Organic farming",ans:"B"},
+  {id:48,q:"Crop diversification contributes to sustainability by:",A:"Reducing species variety",B:"Spreading risk and improving resilience to stress",C:"Increasing dependence on one crop",D:"Lowering soil quality",ans:"B"},
+  {id:49,q:"Which management practice helps conserve soil moisture?",A:"Continuous tillage",B:"Mulching",C:"Excessive irrigation",D:"Removing crop residues",ans:"B"},
+  {id:50,q:"The integration of livestock and crops in farming promotes sustainability because:",A:"It causes overgrazing",B:"It wastes manure",C:"It recycles nutrients and diversifies farm income",D:"It increases erosion",ans:"C"},
+  {id:51,q:"An ecosystem is best defined as:",A:"A community of plants only",B:"A habitat with only abiotic components",C:"A community of living organisms interacting with their physical environment",D:"A single species in an area",ans:"C"},
+  {id:52,q:"The biotic component of an ecosystem includes:",A:"Sunlight and soil",B:"Plants, animals, and microorganisms",C:"Air and water",D:"Rocks and minerals",ans:"B"},
+  {id:53,q:"The abiotic component of an ecosystem consists of:",A:"Only crops",B:"Livestock and insects",C:"Non-living physical and chemical factors like light, water, and temperature",D:"Bacteria",ans:"C"},
+  {id:54,q:"In an agricultural ecosystem, the main producer organisms are:",A:"Cows and goats",B:"Green plants or crops",C:"Soil microbes",D:"Humans",ans:"B"},
+  {id:55,q:"The term agroecosystem refers to:",A:"Natural forests",B:"Lakes and rivers",C:"A managed ecosystem where humans cultivate crops and raise livestock",D:"Mountain ranges",ans:"C"},
+  {id:56,q:"Which of the following is not a component of an agroecosystem?",A:"Crops",B:"Soil microorganisms",C:"Plastic materials",D:"Livestock",ans:"C"},
+  {id:57,q:"Which best describes the role of humans in an agroecosystem?",A:"Passive observers",B:"Managers who regulate inputs, outputs, and biodiversity",C:"Unrelated to ecosystem balance",D:"Inhibitors of plant growth only",ans:"B"},
+  {id:58,q:"The main difference between natural ecosystems and agroecosystems is that:",A:"Agroecosystems are self-sustaining",B:"Natural ecosystems depend on fertilizers",C:"Agroecosystems require continuous human input and management",D:"Natural ecosystems lack biodiversity",ans:"C"},
+  {id:59,q:"A balanced ecosystem maintains stability by:",A:"Overusing one resource",B:"Self-regulation through feedback mechanisms",C:"External fertilization",D:"Human control only",ans:"B"},
+  {id:60,q:"The term biodiversity in an ecosystem refers to:",A:"Number of soil particles",B:"Variety of living organisms within an area",C:"Soil acidity",D:"Light intensity",ans:"B"},
+  {id:61,q:"The trophic levels in an ecosystem represent:",A:"The physical layers of soil",B:"The different feeding positions in a food chain",C:"The growth stages of crops",D:"The water cycles",ans:"B"},
+  {id:62,q:"The primary consumers in an agroecosystem are usually:",A:"Carnivores",B:"Decomposers",C:"Herbivores such as insects and grazing animals",D:"Producers",ans:"C"},
+  {id:63,q:"Decomposers in agroecosystems play a key role by:",A:"Producing energy from sunlight",B:"Breaking down organic matter into nutrients",C:"Absorbing nitrogen from the air",D:"Killing pests",ans:"B"},
+  {id:64,q:"Which of the following is a characteristic of an unstable agroecosystem ?",A:"Balanced nutrient cycles",B:"High biodiversity",C:"Dependence on external inputs and pest outbreaks",D:"Self-regulation",ans:"C"},
+  {id:65,q:"The main energy source driving all ecosystems is:",A:"Water",B:"Sunlight",C:"Wind",D:"Organic matter",ans:"B"},
+  {id:66,q:"The carrying capacity of an ecosystem is:",A:"The number of plants that can grow per hectare",B:"The total nutrient content",C:"The maximum population an environment can support sustainably",D:"The soil’s pH range",ans:"C"},
+  {id:67,q:"The main aim of studying agroecosystems is to:",A:"Increase chemical use",B:"Simplify food webs",C:"Understand interactions between crops, soil, and environment for better management",D:"Eliminate biodiversity",ans:"C"},
+  {id:68,q:"The food chain in an ecosystem starts with:",A:"Carnivores",B:"Omnivores",C:"Producers",D:"Decomposers",ans:"C"},
+  {id:69,q:"A food web differs from a food chain because it:",A:"Has fewer organisms",B:"Shows multiple interconnected feeding relationships",C:"Lacks decomposers",D:"Only includes carnivores",ans:"B"},
+  {id:70,q:"The ecological niche of an organism refers to:",A:"Its genetic makeup",B:"Its population size",C:"Its specific role and habitat in an ecosystem",D:"Its geographic origin",ans:"C"},
+  {id:71,q:"Crop monoculture affects ecosystems by:",A:"Enhancing biodiversity",B:"Reducing genetic diversity and ecosystem stability",C:"Increasing soil microorganisms",D:"Reducing pest attacks",ans:"B"},
+  {id:72,q:"Humans alter ecosystems through activities such as:",A:"Conservation",B:"Deforestation, pollution, and land conversion",C:"Planting cover crops",D:"Organic farming",ans:"B"},
+  {id:73,q:"Agroecosystems differ from natural ones mainly in:",A:"Nutrient self-sufficiency",B:"High human energy input and simplified structure",C:"Lack of living organisms",D:"Stability and diversity",ans:"B"},
+  {id:74,q:"Which is a positive human impact on ecosystems?",A:"Overharvesting",B:"Use of pesticides without limit",C:"Reforestation and conservation programs",D:"Soil salinization",ans:"C"},
+  {id:75,q:"The principle of ecological balance implies that:",A:"All populations are constant",B:"Ecosystems never change",C:"Species populations and resources adjust naturally through feedback mechanisms",D:"Humans can fully control nature",ans:"C"},
+  {id:76,q:"The flow of energy in an ecosystem is described as:",A:"A cyclic process",B:"A reversible pathway",C:"A one-way movement from the sun through organisms to heat loss",D:"A closed loop system",ans:"C"},
+  {id:77,q:"The first trophic level in the food chain consists of:",A:"Herbivores",B:"Carnivores",C:"Producers or autotrophs",D:"Decomposers",ans:"C"},
+  {id:78,q:"The second law of thermodynamics implies that:",A:"Energy increases in each trophic level",B:"Some energy is always lost as heat during transfer",C:"Energy flows equally in all directions",D:"Energy is created and destroyed",ans:"B"},
+  {id:79,q:"Which trophic level typically contains the most energy?",A:"Tertiary consumers",B:"Secondary consumers",C:"Producers",D:"Primary consumers",ans:"C"},
+  {id:80,q:"The 10% energy rule states that:",A:"Only 10% of energy is lost between trophic levels",B:"Only about 10% of energy is transferred to the next level",C:"90% of energy accumulates",D:"Energy transfer is 100% efficient",ans:"B"},
+  {id:81,q:"The cycling of nutrients in an ecosystem differs from energy flow because:",A:"Nutrients are lost permanently",B:"Energy is renewable",C:"Nutrients are recycled through biogeochemical cycles",D:"Energy cannot be stored",ans:"C"},
+  {id:82,q:"The carbon cycle connects plants and animals through:",A:"Nitrogen fixation",B:"Photosynthesis and respiration",C:"Root exudates",D:"Leaching",ans:"B"},
+  {id:83,q:"The nitrogen cycle is vital because:",A:"Nitrogen is abundant and inert",B:"Nitrogen has no biological role",C:"It converts atmospheric nitrogen into forms usable by plants",D:"It creates oxygen",ans:"C"},
+  {id:84,q:"Which organisms are essential in nitrogen fixation?",A:"Fungi",B:"Rhizobium bacteria in legume root nodules",C:"Earthworms",D:"Nematodes",ans:"B"},
+  {id:85,q:"The phosphorus cycle differs from nitrogen and carbon cycles because:",A:"It involves gases",B:"It lacks a significant atmospheric phase",C:"It produces energy",D:"It depends on photosynthesis",ans:"B"},
+  {id:86,q:"Which human activity disrupts the nitrogen cycle?",A:"Forest conservation",B:"Natural grazing",C:"Overuse of fertilizers",D:"Crop rotation",ans:"C"},
+  {id:87,q:"Eutrophication results from:",A:"Oxygen depletion due to excessive nutrient runoff",B:"Decline in soil pH only",C:"Introduction of new species",D:"Reduced sunlight",ans:"A"},
+  {id:88,q:"Which process returns nutrients to the soil after organism death?",A:"Photosynthesis",B:"Decomposition",C:"Transpiration",D:"Nitrogen fixation",ans:"B"},
+  {id:89,q:"Soil pollution often arises from:",A:"Use of organic manure",B:"Crop rotation",C:"Disposal of industrial and pesticide wastes",D:"Mulching",ans:"C"},
+  {id:90,q:"Water pollution from farms is mainly caused by:",A:"Crop residues",B:"Runoff of fertilizers and pesticides into waterways",C:"Wind erosion",D:"Fish farming",ans:"B"},
+  {id:91,q:"The greenhouse effect refers to:",A:"Heat loss from Earth’s surface",B:"Trapping of heat by gases like CO₂ and CH₄",C:"Cloud formation",D:"Natural cooling of atmosphere",ans:"B"},
+  {id:92,q:"Which of the following gases contributes most to global warming?",A:"Nitrogen",B:"Oxygen",C:"Carbon dioxide",D:"Argon",ans:"C"},
+  {id:93,q:"Air pollution negatively impacts crops by:",A:"Increasing photosynthesis",B:"Strengthening cell walls",C:"Damaging leaf tissues and reducing photosynthetic activity",D:"Improving seed germination",ans:"C"},
+  {id:94,q:"Acid rain is primarily caused by emissions of:",A:"Carbon dioxide and methane",B:"Ammonia and oxygen",C:"Sulfur dioxide and nitrogen oxides",D:"Chlorine and hydrogen",ans:"C"},
+  {id:95,q:"One major consequence of soil erosion is:",A:"Increased organic matter",B:"Improved nutrient retention",C:"Loss of fertile topsoil and reduced productivity",D:"Decrease in sedimentation",ans:"C"},
+  {id:96,q:"Biomagnification means:",A:"Decomposition of organic matter",B:"Increase of pollutant concentration along food chains",C:"Dilution of toxins",D:"Reduction of chemical residues",ans:"B"},
+  {id:97,q:"Which farming practice helps reduce nutrient runoff?",A:"Excess fertilizer application",B:"Contour farming and buffer strips",C:"Overirrigation",D:"Deep tillage",ans:"B"},
+  {id:98,q:"The energy pyramid shows that:",A:"Energy increases toward the top",B:"Energy decreases at higher trophic levels",C:"Energy remains constant",D:"Energy flows cyclically",ans:"B"},
+  {id:99,q:"Sustainable nutrient management aims to:",A:"Maximize fertilizer use",B:"Avoid organic inputs",C:"Balance nutrient input and output for long-term fertility",D:"Depend solely on chemicals",ans:"C"},
+  {id:100,q:"The overall goal of studying energy flow and nutrient cycling in crops is to:",A:"Eliminate ecological processes",B:"Simplify food webs",C:"Enhance productivity while maintaining ecological balance",D:"Increase pollution for faster growth ✅ Answer Key Summary No. Key No. Key No. Key No. Key 1 C 26 C 51 C 76 C 2 C 27 C 52 B 77 C 3 C 28 B 53 C 78 B 4 C 29 C 54 B 79 C 5 B 30 C 55 C 80 B 6 C 31 C 56 C 81 C 7 B 32 B 57 B 82 B 8 B 33 C 58 C 83 C 9 B 34 B 59 B 84 B 10 A 35 B 60 B 85 B 11 B 36 B 61 B 86 C 12 C 37 C 62 C 87 A 13 C 38 C 63 B 88 B 14 C 39 B 64 C 89 C 15 B 40 C 65 B 90 B 16 B 41 C 66 C 91 B 17 C 42 C 67 C 92 C 18 B 43 B 68 C 93 C 19 B 44 B 69 B 94 C 20 C 45 C 70 C 95 C 21 C 46 C 71 B 96 B 22 B 47 B 72 B 97 B 23 B 48 B 73 B 98 B 24 C 49 B 74 C 99 C 25 C 50 C 75 C 100 C",ans:"C"}
+];
+
+  // ===========================
+  // QUIZ LOGIC
+  // ===========================
+  const el = id => document.getElementById(id);
+  const stageName = el('stageName');
+  const stageQuiz = el('stageQuiz');
+  const stageResult = el('stageResult');
+  const btnStart = el('btnStart');
+  const inputName = el('studentName');
+  const inputYS = el('yearSection');
+  const qtext = el('qtext');
+  const choicesEl = el('choices');
+  const btnPrev = el('btnPrev');
+  const btnNext = el('btnNext');
+  const counter = el('counter');
+  const who = el('who');
+  const ysPill = el('ys');
+  const timer = el('timer');
+  const penaltiesBadge = el('penalties');
+  const deductBadge = el('deduct');
+  const bar = el('bar');
+  const toast = el('toast');
+
+  const resName = el('resName');
+  const resYS = el('resYS');
+  const resRaw = el('resRaw');
+  const resPenalty = el('resPenalty');
+  const resFinal = el('resFinal');
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  const working = shuffle(QUESTIONS.map(x => ({...x})));
+  const N = working.length;
+
+  let idx = 0;
+  let answers = Array(N).fill(null);
+  let started = false;
+  let secondsLeft = 60*60;
+  let timerHandle = null;
+  let tabSwitches = 0;
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 1800);
+  }
+
+  function render(){
+    counter.textContent = `Q: ${idx+1} / ${N}`;
+    const q = working[idx];
+    qtext.textContent = q.q; // no visible numbering
+    choicesEl.innerHTML = '';
+    ['A','B','C','D'].forEach(letter=>{
+      const wrap = document.createElement('label');
+      wrap.className='choice';
+      wrap.innerHTML = `
+        <input type="radio" name="opt" value="${letter}">
+        <div><b>${letter}.</b> ${q[letter]}</div>
+      `;
+      choicesEl.appendChild(wrap);
+    });
+    if(answers[idx]){
+      const sel = choicesEl.querySelector(`input[value="${answers[idx]}"]`);
+      if(sel) sel.checked = true;
+    }
+    btnPrev.disabled = (idx===0);
+    btnNext.textContent = (idx===N-1) ? 'Submit' : 'Next';
+    bar.style.width = `${((idx)/Math.max(1,(N-1)))*100}%`;
+  }
+
+  function getSelected(){
+    const sel = choicesEl.querySelector('input[name="opt"]:checked');
+    return sel ? sel.value : null;
+  }
+
+  function toQuiz(){
+    stageName.classList.remove('active');
+    stageQuiz.classList.add('active');
+    started = true;
+    render();
+    startTimer();
+  }
+
+  function computeSheetOrdered(){
+    // Order by original id for admin review
+    const map = new Map(working.map((q,i)=>[q.id,i]));
+    const sheet = QUESTIONS
+      .slice()
+      .sort((a,b)=>a.id-b.id)
+      .map(orig => {
+        // find where this original question appeared in the randomized list
+        const randomizedIndex = working.findIndex(w => w.id === orig.id);
+        const chosen = answers[randomizedIndex] ?? null;
+        return ({ 
+          originalId: orig.id,
+          text: orig.q,
+          A: orig.A, B: orig.B, C: orig.C, D: orig.D,
+          correct: orig.ans,
+          chosen 
+        });
+      });
+    return sheet;
+  }
+
+  function toResults(payload){
+    stageQuiz.classList.remove('active');
+    stageResult.classList.add('active');
+
+    const {studentName, yearSection, rawScore, penalties, finalScore} = payload;
+    resName.textContent = studentName;
+    resYS.textContent = yearSection;
+    resRaw.textContent = rawScore;
+    resPenalty.textContent = penalties*10;
+    resFinal.textContent = finalScore;
+  }
+
+  function computeAndSubmit(){
+    let raw = 0;
+    for (let i=0;i<N;i++){ if(answers[i] && answers[i] === working[i].ans) raw++; }
+    const penalties = tabSwitches;
+    const finalScore = Math.max(0, raw - penalties*10);
+    const studentName = inputName.value.trim();
+    const yearSection = inputYS.value.trim();
+    const sheet = computeSheetOrdered();
+
+    const payload = {
+      studentName, yearSection,
+      rawScore: raw, penalties, finalScore,
+      secondsRemaining: secondsLeft,
+      submittedAt: new Date().toISOString(),
+    };
+
+    (async ()=>{
+      try{
+        if (db && addDoc && collection){
+          await addDoc(collection(db, "submissions"), {
+            name: studentName,
+            yearSection: yearSection,
+            rawScore: raw,
+            penalties,
+            finalScore,
+            secondsRemaining: secondsLeft,
+            sheet, // full answer sheet in canonical order
+            createdAt: serverTimestamp()
+          });
+        }
+      }catch(err){
+        console.warn("Firestore write failed:", err);
+      }finally{
+        toResults(payload);
+      }
+    })();
+  }
+
+  function next(){
+    const sel = getSelected();
+    if(!sel){
+      showToast("Please choose an answer before proceeding.");
+      return;
+    }
+    answers[idx] = sel;
+    if(idx === N-1){
+      clearInterval(timerHandle);
+      computeAndSubmit();
+    }else{
+      idx++;
+      render();
+    }
+  }
+
+  function prev(){
+    if(idx>0){
+      const sel = getSelected();
+      if(sel) answers[idx] = sel;
+      idx--;
+      render();
+    }
+  }
+
+  function startTimer(){
+    function fmt(s){
+      const m = Math.floor(s/60), ss = s%60;
+      return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+    }
+    timer.textContent = `Time: ${fmt(secondsLeft)}`;
+    timerHandle = setInterval(()=>{
+      secondsLeft--;
+      if(secondsLeft<=0){
+        clearInterval(timerHandle);
+        answers[idx] = getSelected() ?? answers[idx];
+        computeAndSubmit();
+      }else{
+        timer.textContent = `Time: ${fmt(secondsLeft)}`;
+      }
+    },1000);
+  }
+
+  document.addEventListener('visibilitychange', ()=>{
+    if (!started) return;
+    if (document.hidden){
+      tabSwitches++;
+      penaltiesBadge.textContent = `Tab switches: ${tabSwitches}`;
+      deductBadge.textContent = `Penalty: ${tabSwitches*10}`;
+      showToast("Tab change detected: -10 points.");
+    }
+  });
+
+  btnStart.addEventListener('click', ()=>{
+    const nm = inputName.value.trim();
+    const ys = inputYS.value.trim();
+    if(!nm) { showToast("Please enter your full name."); return; }
+    if(!ys) { showToast("Please enter your Year & Section."); return; }
+    who.textContent = `Name: ${nm}`;
+    ysPill.textContent = `Year/Section: ${ys}`;
+    toQuiz();
+  });
+  inputName.addEventListener('keydown',(e)=>{ if(e.key==='Enter') btnStart.click(); });
+  inputYS.addEventListener('keydown',(e)=>{ if(e.key==='Enter') btnStart.click(); });
+  btnNext.addEventListener('click', next);
+  btnPrev.addEventListener('click', prev);
+
+  document.addEventListener('keydown', (e)=>{
+    if(!stageQuiz.classList.contains('active')) return;
+    if(['1','2','3','4','a','b','c','d','A','B','C','D'].includes(e.key)){
+      const map = { '1':'A','2':'B','3':'C','4':'D' };
+      const v = map[e.key] || e.key.toUpperCase();
+      const radio = choicesEl.querySelector(`input[value="${v}"]`);
+      if(radio) radio.checked = true;
+    } else if(e.key === 'ArrowRight'){ next(); }
+      else if(e.key === 'ArrowLeft'){ prev(); }
+  });
+</script>
+</body>
+</html>
