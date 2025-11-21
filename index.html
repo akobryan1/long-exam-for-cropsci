@@ -160,21 +160,21 @@
       <span class="pill" id="pillCount">Q: — / —</span>
     </div>
 
-    <!-- Stage 0 -->
+    <!-- Stage 0: Instructions -->
     <section id="stage0">
       <h2>Exam Instructions</h2>
       <ul>
         <li>This exam is <strong>screen recorded</strong>.</li>
         <li>You have <strong>1 hour</strong> to finish once you start.</li>
-        <li>You may take the exam <strong>twice</strong>.</li>
+        <li>You may take the exam <strong>twice</strong>. After the second attempt, further attempts will be blocked.</li>
         <li>The link closes at <strong>11:59:59 PM on 21 November 2025</strong>.</li>
       </ul>
-      <p class="small">Make sure you have a stable internet connection. Do not close the tab.</p>
+      <p class="small">Make sure you have a stable internet connection. Do not close this tab while taking the exam.</p>
       <div class="error" id="errStage0" style="display:none;"></div>
       <button class="primary" id="btnUnderstand">I understand</button>
     </section>
 
-    <!-- Stage 1 -->
+    <!-- Stage 1: Student info -->
     <section id="stage1" class="hidden">
       <h2>Student Information</h2>
       <div class="field">
@@ -188,7 +188,7 @@
       </div>
     </section>
 
-    <!-- Stage 2 -->
+    <!-- Stage 2: Questions -->
     <section id="stage2" class="hidden">
       <div class="progress"><div id="bar" class="bar"></div></div>
       <p id="qtext"></p>
@@ -203,7 +203,7 @@
       </div>
     </section>
 
-    <!-- Stage 3 -->
+    <!-- Stage 3: Result -->
     <section id="stage3" class="hidden">
       <h2>Submission Complete</h2>
       <p><strong id="rName"></strong> (<span id="rSection"></span>)</p>
@@ -216,9 +216,8 @@
 </div>
 
 <script type="module">
-
 /* =============================
-   REPLACED QUESTIONS (NEW SET)
+   FIXED-ORDER QUESTIONS
    ============================= */
 
 const QUESTIONS = [
@@ -275,7 +274,7 @@ const QUESTIONS = [
 ];
 
 /* =====================================
-   FIREBASE + EXAM LOGIC (UNCHANGED)
+   FIREBASE + EXAM LOGIC
    ===================================== */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -296,14 +295,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-try { await signInAnonymously(auth); } catch(e){ console.warn("Auth failed:",e); }
+try { await signInAnonymously(auth); } catch(e){ console.warn("Anon auth failed:",e); }
 
+// Your Firestore exam document
 const EXAM_DOC_ID = "KzRzubb5df1TV1gL2RuF";
-const COURSE_TITLE = "Crop Sci";
 
+// Course title stored in Firestore
+const COURSE_TITLE = "CropSci Final Exam";
+
+// 1 hour
 const EXAM_SECONDS = 60 * 60;
-const CLOSING_TIME = new Date(2025,10,21,23,59,59);
 
+// Closing time: 21 Nov 2025 11:59:59 PM (months are 0-based: 10 = November)
+const CLOSING_TIME = new Date(2025, 10, 21, 23, 59, 59);
+
+/* ---------- DOM ELEMENTS ---------- */
 const stage0 = document.getElementById("stage0");
 const stage1 = document.getElementById("stage1");
 const stage2 = document.getElementById("stage2");
@@ -336,6 +342,7 @@ const rName = document.getElementById("rName");
 const rSection = document.getElementById("rSection");
 const rScore = document.getElementById("rScore");
 
+/* ---------- STATE ---------- */
 let currentIndex = 0;
 let selectedAnswers = new Array(QUESTIONS.length).fill(null);
 let secondsLeft = EXAM_SECONDS;
@@ -345,24 +352,37 @@ let studentName = "";
 let studentSection = "";
 let submitting = false;
 
+/* ---------- HELPERS ---------- */
 function isClosed(){ return new Date() > CLOSING_TIME; }
-function showErr(el,msg){ el.textContent = msg; el.style.display = msg?"block":"none"; }
-function switchStage(st){ stage0.classList.add("hidden");stage1.classList.add("hidden");stage2.classList.add("hidden");stage3.classList.add("hidden"); st.classList.remove("hidden"); }
+
+function showErr(el,msg){
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+
+function switchStage(st){
+  stage0.classList.add("hidden");
+  stage1.classList.add("hidden");
+  stage2.classList.add("hidden");
+  stage3.classList.add("hidden");
+  st.classList.remove("hidden");
+}
 
 function renderQuestion(){
   const q = QUESTIONS[currentIndex];
   qtext.textContent = q.q;
   choicesEl.innerHTML = "";
   ["A","B","C","D"].forEach(l=>{
-    const checked = selectedAnswers[currentIndex]===l ? " checked":"";
+    const checked = selectedAnswers[currentIndex]===l ? " checked" : "";
     choicesEl.insertAdjacentHTML("beforeend",
       `<label class="choice">
         <input type="radio" name="opt" value="${l}"${checked}>
         <div><b>${l}.</b> ${q[l]}</div>
       </label>`);
   });
+
   pillCount.textContent = `Q: ${currentIndex+1} / ${QUESTIONS.length}`;
-  barEl.style.width = (currentIndex/(QUESTIONS.length-1))*100+"%";
+  barEl.style.width = (currentIndex/(QUESTIONS.length-1))*100 + "%";
 
   btnPrev.disabled = currentIndex===0;
   if(currentIndex===QUESTIONS.length-1){
@@ -387,22 +407,30 @@ function startTimer(){
     secondsLeft--;
     const m = Math.floor(secondsLeft/60), s = secondsLeft%60;
     pillTimer.textContent = `Time: ${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-    if(secondsLeft<=0){ clearInterval(timerId); autoSubmit(); }
+    if(secondsLeft<=0){
+      clearInterval(timerId);
+      autoSubmit();
+    }
   },1000);
 }
 
 async function getAttemptCountForStudent(id){
   try{
-    const attemptsCol = collection(db,"finals-exam",EXAM_DOC_ID,"submissions",id,"attempts");
+    const attemptsCol = collection(
+      db,"finals-exam",EXAM_DOC_ID,"submissions",id,"attempts"
+    );
     const snap = await getDocs(attemptsCol);
     return snap.size;
-  } catch(e){ return 0; }
+  }catch(e){
+    console.warn("Attempt count check failed:", e);
+    return 0;
+  }
 }
 
 function computeScore(){
-  let s=0;
-  for(let i=0;i<QUESTIONS.length;i++){
-    if(selectedAnswers[i]===QUESTIONS[i].ans) s++;
+  let s = 0;
+  for(let i=0; i<QUESTIONS.length; i++){
+    if(selectedAnswers[i] === QUESTIONS[i].ans) s++;
   }
   return s;
 }
@@ -418,38 +446,52 @@ function buildAnswerSheet(){
   }));
 }
 
+/* ---------- EVENT HANDLERS ---------- */
+
 btnUnderstand.addEventListener("click",()=>{
-  if(isClosed()){ showErr(errStage0,"This exam is already closed."); return; }
+  if(isClosed()){
+    showErr(errStage0,"This exam is already closed.");
+    return;
+  }
   switchStage(stage1);
 });
 
 btnBack.addEventListener("click",()=>switchStage(stage0));
 
-btnStart.addEventListener("click",async()=>{
-  if(isClosed()){ showErr(errStage1,"This exam is already closed."); return; }
+btnStart.addEventListener("click", async ()=>{
+  if(isClosed()){
+    showErr(errStage1,"This exam is already closed.");
+    return;
+  }
 
-  const nm = inpName.value.trim(), sec = inpSection.value.trim();
+  const nm = inpName.value.trim();
+  const sec = inpSection.value.trim();
   if(!nm){ showErr(errStage1,"Enter your name."); return; }
   if(!sec){ showErr(errStage1,"Enter your section."); return; }
   showErr(errStage1,"");
 
   studentName = nm;
   studentSection = sec;
-  let raw = nm+"|||"+sec+"|||"+COURSE_TITLE;
+
+  // Build deterministic studentId from name + section + course
+  let raw = nm + "|||" + sec + "|||" + COURSE_TITLE;
   let base;
-  try{ base = btoa(unescape(encodeURIComponent(raw))); }
+  try { base = btoa(unescape(encodeURIComponent(raw))); }
   catch(e){ base = raw; }
   studentId = base.replace(/[^A-Za-z0-9]/g,"").slice(0,80) || "student";
 
   const attemptCount = await getAttemptCountForStudent(studentId);
-  if(attemptCount>=2){ showErr(errStage1,"You have used your 2 attempts."); return; }
+  if(attemptCount >= 2){
+    showErr(errStage1,"You have already used your 2 attempts for this exam.");
+    return;
+  }
 
   metaRow.classList.remove("hidden");
-  pillName.textContent="Name: "+studentName;
-  pillSection.textContent="Year/Section: "+studentSection;
+  pillName.textContent = "Name: " + studentName;
+  pillSection.textContent = "Year/Section: " + studentSection;
 
-  currentIndex=0;
-  selectedAnswers=new Array(QUESTIONS.length).fill(null);
+  currentIndex = 0;
+  selectedAnswers = new Array(QUESTIONS.length).fill(null);
 
   switchStage(stage2);
   renderQuestion();
@@ -457,73 +499,127 @@ btnStart.addEventListener("click",async()=>{
 });
 
 btnNext.addEventListener("click",()=>{
-  const sel=getSelectedValue();
-  if(!sel){ showErr(errStage2,"Choose an answer."); return; }
-  selectedAnswers[currentIndex]=sel;
-  currentIndex++; renderQuestion();
+  const sel = getSelectedValue();
+  if(!sel){
+    showErr(errStage2,"Choose an answer before proceeding.");
+    return;
+  }
+  selectedAnswers[currentIndex] = sel;
+  currentIndex++;
+  renderQuestion();
 });
 
 btnPrev.addEventListener("click",()=>{
-  const sel=getSelectedValue();
-  if(sel) selectedAnswers[currentIndex]=sel;
-  currentIndex--; renderQuestion();
+  const sel = getSelectedValue();
+  if(sel) selectedAnswers[currentIndex] = sel;
+  if(currentIndex > 0){
+    currentIndex--;
+    renderQuestion();
+  }
 });
 
 btnSubmit.addEventListener("click",()=>{
-  const sel=getSelectedValue();
-  if(!sel){ showErr(errStage2,"Choose an answer."); return; }
-  selectedAnswers[currentIndex]=sel;
+  const sel = getSelectedValue();
+  if(!sel){
+    showErr(errStage2,"Choose an answer before submitting.");
+    return;
+  }
+  selectedAnswers[currentIndex] = sel;
   submitExam(false);
 });
 
-async function submitExam(auto){
+/* ---------- SUBMISSION LOGIC ---------- */
+
+async function submitExam(autoSubmitted){
   if(submitting) return;
-  submitting=true;
-  btnSubmit.disabled=true; btnNext.disabled=true; btnPrev.disabled=true;
-  if(timerId){ clearInterval(timerId); timerId=null; }
+  submitting = true;
+
+  btnSubmit.disabled = true;
+  btnNext.disabled = true;
+  btnPrev.disabled = true;
+
+  if(timerId){
+    clearInterval(timerId);
+    timerId = null;
+  }
 
   const score = computeScore();
   const answerSheet = buildAnswerSheet();
 
-  const payload = {
-    Course:COURSE_TITLE,
-    submissionDate:serverTimestamp(),
-    Score:score,
-    Name:studentName,
-    secondsRemaining:secondsLeft,
-    section:studentSection,
-    answers:answerSheet,
-    autoSubmitted:!!auto
+  const attemptPayload = {
+    Course: COURSE_TITLE,
+    submissionDate: serverTimestamp(),
+    Score: score,
+    Name: studentName,
+    secondsRemaining: secondsLeft,
+    section: studentSection,
+    answers: answerSheet,
+    autoSubmitted: !!autoSubmitted
   };
 
-  try{
-    const attemptsCol = collection(db,"finals-exam",EXAM_DOC_ID,"submissions",studentId,"attempts");
+  try {
+    // 1) Determine attempt number
+    const attemptsCol = collection(
+      db,"finals-exam",EXAM_DOC_ID,"submissions",studentId,"attempts"
+    );
     const snap = await getDocs(attemptsCol);
     const attemptNum = snap.size + 1;
-    const ref = doc(db,"finals-exam",EXAM_DOC_ID,"submissions",studentId,"attempts","attempt"+attemptNum);
-    await setDoc(ref,payload);
+
+    // 2) Save full attempt document
+    const attemptRef = doc(
+      db,"finals-exam",EXAM_DOC_ID,"submissions",studentId,"attempts",
+      "attempt" + attemptNum
+    );
+    await setDoc(attemptRef, attemptPayload);
+
+    // 3) Mirror summary fields at student root for easy filtering
+    const studentSummaryRef = doc(
+      db,"finals-exam",EXAM_DOC_ID,"submissions",studentId
+    );
+    await setDoc(
+      studentSummaryRef,
+      {
+        Course: COURSE_TITLE,
+        Name: studentName,
+        section: studentSection,
+        LatestScore: score,
+        LatestSubmissionDate: serverTimestamp(),
+        AttemptsUsed: attemptNum,
+        lastSecondsRemaining: secondsLeft
+      },
+      { merge: true }
+    );
 
     alert("Your exam has been submitted.");
-    rName.textContent=studentName;
-    rSection.textContent=studentSection;
-    rScore.textContent=score+" / "+QUESTIONS.length;
+
+    rName.textContent = studentName;
+    rSection.textContent = studentSection;
+    rScore.textContent = score + " / " + QUESTIONS.length;
     switchStage(stage3);
-  } catch(e){
+  } catch (e) {
+    console.error("Submission failed:", e);
     alert("Submission failed. Please try again.");
-    if(secondsLeft>0) startTimer();
-    submitting=false;
+    // Re-enable buttons so student can retry
+    btnSubmit.disabled = false;
+    btnNext.disabled = false;
+    btnPrev.disabled = false;
+    submitting = false;
+    if(secondsLeft > 0){
+      startTimer();
+    }
   }
 }
 
 async function autoSubmit(){
   if(submitting) return;
   const sel = getSelectedValue();
-  if(sel) selectedAnswers[currentIndex]=sel;
+  if(sel) selectedAnswers[currentIndex] = sel;
   await submitExam(true);
 }
 
-pillTimer.textContent="Time: 60:00";
-pillCount.textContent="Q: — / "+QUESTIONS.length;
+/* ---------- INITIAL PILL TEXT ---------- */
+pillTimer.textContent = "Time: 60:00";
+pillCount.textContent = "Q: — / " + QUESTIONS.length;
 
 </script>
 </body>
